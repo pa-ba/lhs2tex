@@ -66,9 +66,9 @@ Format directives. \NB @%format ( = "(\;"@ is legal.
 \Todo{@%format `div1`@ funktioniert nicht.}
 
 >     where
->     agda                      =  lang == Agda
->     tex (Varid s) | agda      =  operator s
->     tex (Conid s) | agda      =  operator s
+>     agdaCoq                   =  lang == Agda || lang == Coq
+>     tex (Varid s) | agdaCoq   =  operator s
+>     tex (Conid s) | agdaCoq   =  operator s
 >     tex (Varid s)             =  subscript Varid s
 >     tex (Conid s)             =  subscript Conid s
 >     tex (Qual [] s)           =  tex s
@@ -171,6 +171,7 @@ because "=" will never occur in a Varid constructor.
 > varid                         =  do x <- satisfy (\ x -> isVarid x && x /= Varid "="); return (string x)
 > conid                         =  do x <- satisfy isConid; return (string x)
 > varsym Agda s                 =  satisfy (\ x -> x == Varsym s || x == Varid s) -- Agda has no symbol/id distinction
+> varsym Coq s                  =  satisfy (\ x -> x == Varsym s || x == Varid s)
 > varsym Haskell s              =  satisfy (== (Varsym s))
 >
 > isTeX (TeX _ _)               =  True
@@ -244,6 +245,7 @@ Primitive Parser.
 > varsym' lang                  =  do x <- satisfy (isVarsym lang); return (string x)
 > isVarsym _ (Varsym _)         =  True
 > isVarsym Agda (Varid _)       =  True  -- for Agda
+> isVarsym Coq (Varid _)        =  True  -- for Coq
 > isVarsym _ _                  =  False
 > isString (String _)           =  True
 > isString _                    =  False

@@ -7,7 +7,7 @@
 > {-# LANGUAGE NPlusKPatterns #-}
 > module HsLexer                (  module HsLexer ) --Token(..), isVarid, isConid, isNotSpace, string, tokenize  )
 > where
-> import Data.Char      (  isSpace, isUpper, isLower, isDigit, isAlphaNum, isPunctuation  )
+> import Data.Char      (  isSpace, isUpper, isLower, isDigit, isAlphaNum, isPunctuation, isAlpha  )
 > import qualified Data.Char ( isSymbol )
 > import Control.Monad
 > import Control.Monad.Error ()
@@ -119,14 +119,18 @@ ks, 28.08.2008: New: Agda and Haskell modes.
 >                               =  do let (t, u) = nested 0 s
 >                                     v <- match "#-}" u
 >                                     return (Pragma t, v)
-> lex' lang ('{' : '-' : s)     =  do let (t, u) = nested 0 s
+> lex' lang ('{' : '-' : s)
+>     | lang == Haskell || lang == Agda 
+>                               =  do let (t, u) = nested 0 s
 >                                     v <- match "-}" u
+>                                     return (Nested t, v)
+> lex' Coq ('(' : '*' : s)      =  do let (t, u) = nested' 0 s
+>                                     v <- match "*)" u
 >                                     return (Nested t, v)
 > lex' lang (c : s)
 >     | isSpace c               =  let (t, u) = span isSpace s in return (Space (c : t), u)
 >     | isSpecial lang c        =  Just (Special c, s)
->     | isUpper c               =  let (t, u) = span (isIdChar lang) s in return (Conid (c : t), u)
->     | isLower c || c == '_'   =  let (t, u) = span (isIdChar lang) s in return (classify (c : t), u)
+>     | isAlpha c || c == '_'   =  let (t, u) = idName lang s in return (classify (c : t), u)
 >     | c == ':'                =  let (t, u) = span (isSymbol lang) s in return (consymid lang (c : t), u)
 >     | isDigit c               =  do let (ds, t) = span isDigit s
 >                                     (fe, u)  <- lexFracExp t
@@ -135,10 +139,20 @@ ks, 28.08.2008: New: Agda and Haskell modes.
 >     | otherwise               =  Nothing
 >     where
 >     numeral Agda              =  Varid
+>     numeral Coq               =  Varid
 >     numeral Haskell           =  Numeral
->     classify s
+>     idName lang xs@[]      =  (xs, xs)
+>     idName lang xs@(x:xs')
+>         | isIdChar lang x  =  let (ys,zs) = idName lang xs'
+>                               in if lang == Coq && x == '.' && null ys
+>                                  then ([],xs)
+>                                  else (x:ys,zs)
+>         | otherwise        =  ([],xs)
+
+>     classify s@(c:_)
 >         | s `elem` keywords lang
 >                               =  Keyword s
+>         | isUpper c           =  Conid   s
 >         | otherwise           =  Varid   s
 >
 >
@@ -163,8 +177,10 @@ ks, 28.08.2008: New: Agda and Haskell modes.
 > lexDigits' s                  =  do (cs@(_ : _), t) <- Just (span isDigit s); return (cs, t)
 
 > varsymid Agda    = Varid
+> varsymid Coq     = Varid
 > varsymid Haskell = Varsym
 > consymid Agda    = Conid
+> consymid Coq     = Conid
 > consymid Haskell = Consym
 
 %}
@@ -188,6 +204,14 @@ ks, 28.08.2008: New: Agda and Haskell modes.
 > nested n     ('{' : '-' : s)  =  '{' <| '-' <| nested (n + 1) s
 > nested n     (c : s)          =  c <| nested n s
 
+> nested'                        :: Int -> String -> (String, String)
+> nested' _     []               =  ([], [])
+> nested' 0     ('*' : ')' : s)  =  ([], '*':')':s)
+> nested' (n+1) ('*' : ')' : s)  =  '*' <| ')' <| nested' n s
+> nested' n     ('(' : '*' : s)  =  '(' <| '*' <| nested' (n + 1) s
+> nested' n     (c : s)          =  c <| nested' n s
+
+
 ks, 03.09.2003: The above definition of nested will actually
 incorrectly reject programs that contain comments like the
 following one: {- start normal, but close as pragma #-} ...
@@ -208,12 +232,15 @@ I don't expect this to be a problem, though.
 > isIdChar, isSymbol            :: Lang -> Char -> Bool
 > isSpecial Haskell c           =  c `elem` ",;()[]{}`"
 > isSpecial Agda c              =  c `elem` ";(){}"
+> isSpecial Coq c               =  c `elem` ";(){}"
 > isSymbol Haskell c            =  not (isSpecial Haskell c) && notElem c "'\"" &&
 >                                  (c `elem` "!@#$%&*+./<=>?\\^|:-~" ||
 >                                   Data.Char.isSymbol c || Data.Char.isPunctuation c)
 > isSymbol Agda c               =  isIdChar Agda c
+> isSymbol Coq  c               =  isIdChar Coq c
 > isIdChar Haskell c            =  isAlphaNum c || c `elem` "_'"
 > isIdChar Agda c               =  not (isSpecial Agda c || isSpace c)
+> isIdChar Coq c                =  not (isSpecial Coq c || isSpace c)
 
 > match                         :: String -> String -> Maybe String
 > match p s
@@ -236,6 +263,10 @@ Keywords
 >                                    "infixl", "infixr", "mutual", "abstract",
 >                                    "private", "forall", "using", "hiding",
 >                                    "renaming", "public" ]
+> keywords Coq                  =  [ "let", "in", "match", "with", "fun",
+>                                    "Open", "Require", "Import", "Definition",
+>                                    "Module", "Fixpoint", "Inductive", "Record",
+>                                    "Theorem", "Lemma", "Corollary", "Fact"]
 
 % - - - - - - - - - - - - - - - = - - - - - - - - - - - - - - - - - - - - - - -
 \subsubsection{Phase 2}

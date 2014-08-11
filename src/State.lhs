@@ -16,7 +16,7 @@
 > type CondInfo                 =  (FilePath, LineNo, Bool, Bool)
 >
 > data State                    =  State { style      :: Style,
->                                          lang       :: Lang,          -- Haskell or Agda, currently
+>                                          lang       :: Lang,          -- Haskell, Agda, or Coq , currently
 >                                          verbose    :: Bool,
 >                                          searchpath :: [FilePath],
 >                                          file       :: FilePath,      -- also used for `hugs'
