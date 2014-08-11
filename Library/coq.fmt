@@ -1,0 +1,23 @@
+%if not lhs2tex_coq_fmt_read
+%let lhs2tex_coq_fmt_read = True
+%include polycode.fmt
+%
+%if style /= newcode
+\ReadOnlyOnce{coq.fmt}%
+
+%if lang == coq
+
+%subst keyword a = "\Keyword{" a "}"
+
+\renewcommand\Varid[1]{\mathord{\textsf{#1}}}
+\let\Conid\Varid
+\newcommand\Keyword[1]{\textsf{\textbf{#1}}}
+
+\def\commentbegin{\enskip\ensuremath{(*}\;}
+\def\commentend{\ensuremath{*)}\enskip}
+
+\EndFmtInput
+
+%endif
+%endif
+%endif
