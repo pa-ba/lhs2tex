@@ -9,6 +9,7 @@
 > where
 > import Data.Char      (  isSpace, isUpper, isLower, isDigit, isAlphaNum, isPunctuation, isAlpha  )
 > import qualified Data.Char ( isSymbol )
+> import Data.List
 > import Control.Monad
 > import Control.Monad.Error ()
 > import Document
@@ -90,11 +91,40 @@ The main function.
 
 ks, 28.08.2008: New: Agda and Haskell modes.
 
-> lexify                        :: Lang -> [Char] -> Either Exc [Token]
-> lexify lang []                =  return []
-> lexify lang s@(_ : _)         =  case lex' lang s of
+Coq commands.
+
+>
+> commands =  ["Open", "Require", "Import", "Definition",
+>              "Module", "Fixpoint", "Inductive", "Record",
+>              "Theorem", "Lemma", "Corollary", "Fact"]
+
+
+> lexify      :: Lang -> [Char] -> Either Exc [Token]
+> lexify Coq  = lexifyCoq True
+> lexify lang = lexifyOther lang
+> 
+> lexCommand :: String -> Maybe (Token, String)
+> lexCommand s = msum $ map findCom commands
+>     where findCom c 
+>               | c `isPrefixOf` s = return (Keyword c, drop (length c) s)
+>               | otherwise        = Nothing
+>                           
+> lexifyCoq :: Bool -> [Char] -> Either Exc [Token]
+> lexifyCoq _ [] = return []
+> lexifyCoq _ ('.':s'@(c:_))
+>     | isSpace c = do ts <- lexifyCoq True s'; return (Special '.' : ts)
+> lexifyCoq True s
+>  | Just (t,s') <- lexCommand s = do ts <- lexifyCoq False s'; return (t : ts)
+> lexifyCoq new s  = case lex' Coq s of
+>       Nothing      -> Left ("lexical error", s)
+>       Just (t, s') -> do ts <- lexifyCoq (new && spaceToken t) s'; return (t : ts)
+>           where spaceToken Space{} = True
+>                 spaceToken _       = False
+>                                        
+> lexifyOther lang []                =  return []
+> lexifyOther lang s@(_ : _)         =  case lex' lang s of
 >     Nothing                   -> Left ("lexical error", s)
->     Just (t, s')              -> do ts <- lexify lang s'; return (t : ts)
+>     Just (t, s')              -> do ts <- lexifyOther lang s'; return (t : ts)
 >
 > lex'                          :: Lang -> String -> Maybe (Token, String)
 > lex' lang ""                  =  Nothing
@@ -263,10 +293,7 @@ Keywords
 >                                    "infixl", "infixr", "mutual", "abstract",
 >                                    "private", "forall", "using", "hiding",
 >                                    "renaming", "public" ]
-> keywords Coq                  =  [ "let", "in", "match", "with", "fun",
->                                    "Open", "Require", "Import", "Definition",
->                                    "Module", "Fixpoint", "Inductive", "Record",
->                                    "Theorem", "Lemma", "Corollary", "Fact"]
+> keywords Coq                  =  [ "let", "in", "match", "with", "fun"]
 
 % - - - - - - - - - - - - - - - = - - - - - - - - - - - - - - - - - - - - - - -
 \subsubsection{Phase 2}
